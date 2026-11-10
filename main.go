@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
 	"fmt"
 	"log"
 	"os"
-	"bytes"
-
 
 	"golang.org/x/crypto/ssh"
+	//"golang.org/x/tools/go/analysis/passes/bools"
+	//"golang.org/x/tools/go/analysis/passes/nilness"
 )
 
 const sshDir = ".ssh"
@@ -68,8 +69,31 @@ func initialize_ssh_env() error {
 	return nil
 }
 
-func main() {
-	initialize_ssh_env()
+func setup_ssh_server() error {
+	// Minimal ServerConfig supporting only password authentication.
+	config := &ssh.ServerConfig{
+		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			// Should use constant-time compare (or better, salt+hash) in
+			// a production setting.
+			if c.User() == "testuser" && string(pass) == "tiger" {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("password rejected for %q", c.User())
+		},
+	}
+
+	privateBytes, err := os.ReadFile("./ssh/id_ed25519")
+	if err != nil {
+		return fmt.Errorf("Failed to load private key: %s", err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(privateBytes)
+	config.AddHostKey(signer)
+	
+	return nil
+}
+
+func sshClientTest() {
 	var hostKey ssh.PublicKey
 	number_is := 1
 	fmt.Println(number_is)
@@ -108,4 +132,15 @@ func main() {
 		log.Fatal("Failed to run: " + err.Error())
 	}
 	fmt.Println(b.String())
+}
+
+func main() {
+	err := setup_ssh_server()
+	if err != nil {
+		log.Fatal("Failed to setup SSH server: ", err)
+	}
+	x:=10
+	fmt.Println(x)
+	initialize_ssh_env()
+
 }
